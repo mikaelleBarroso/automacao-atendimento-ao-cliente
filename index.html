@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atendimento ao Cliente - Teste Webhook</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background-color: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      background: #ffffff;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 480px;
+    }
+    h2 {
+      margin-top: 0;
+      color: #111827;
+      font-size: 1.4rem;
+    }
+    p.subtitle {
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.9rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    button:disabled {
+      background-color: #93c5fd;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .success {
+      background-color: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    .error {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Central de Atendimento</h2>
+    <p class="subtitle">Envie sua solicitação para nossa equipe.</p>
+
+    <form id="contactForm">
+      <div class="form-group">
+        <label for="nome_cliente">Nome Completo</label>
+        <input type="text" id="nome_cliente" name="nome_cliente" placeholder="Ex: Maria Oliveira" required>
+      </div>
+
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" placeholder="maria@empresa.com" required>
+      </div>
+
+      <div class="form-group">
+        <label for="categoria">Categoria</label>
+        <select id="categoria" name="categoria" required>
+          <option value="Suporte Técnico">Suporte Técnico</option>
+          <option value="Financeiro">Financeiro</option>
+          <option value="Comercial">Comercial</option>
+          <option value="Dúvidas Gerais">Dúvidas Gerais</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="urgencia">Nível de Urgência</label>
+        <select id="urgencia" name="urgencia" required>
+          <option value="BAIXA">Baixa</option>
+          <option value="MÉDIA">Média</option>
+          <option value="ALTA">Alta (Emergência)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="mensagem">Mensagem</label>
+        <textarea id="mensagem" name="mensagem" placeholder="Descreva o problema ou solicitação..." required></textarea>
+      </div>
+
+      <button type="submit" id="submitBtn">Enviar Solicitação</button>
+    </form>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const WEBHOOK_URL = "https://mikaellebarroso.app.n8n.cloud/webhook-test/atendimento-cliente";
+    const form = document.getElementById("contactForm");
+    const statusDiv = document.getElementById("status");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Enviando...";
+      statusDiv.style.display = "none";
+
+      const payload = {
+        nome_cliente: document.getElementById("nome_cliente").value,
+        email: document.getElementById("email").value,
+        categoria: document.getElementById("categoria").value,
+        urgencia: document.getElementById("urgencia").value,
+        mensagem: document.getElementById("mensagem").value
+      };
+
+      try {
+        const response = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          statusDiv.className = "success";
+          statusDiv.textContent = "✅ Solicitação enviada com sucesso para o n8n!";
+          statusDiv.style.display = "block";
+          form.reset();
+        } else {
+          throw new Error(`Erro HTTP ${response.status}`);
+        }
+      } catch (err) {
+        statusDiv.className = "error";
+        statusDiv.textContent = "❌ Falha ao enviar. Verifique se o n8n está em modo 'Listen for Test Event' (Erro: " + err.message + ")";
+        statusDiv.style.display = "block";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Enviar Solicitação";
+      }
+    });
+  </script>
+
+</body>
+</html>

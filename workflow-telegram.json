@@ -1,0 +1,131 @@
+{
+  "name": "Atendimento Automatizado - Triagem de Urgência",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atendimento-cliente",
+        "options": {}
+      },
+      "id": "webhook-trigger-node",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "atendimento-cliente-wh"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nconst nome = body.nome_cliente ? String(body.nome_cliente).trim() : 'Cliente Não Informado';\nconst email = body.email ? String(body.email).trim() : 'Sem e-mail';\nconst categoria = body.categoria ? String(body.categoria).trim() : 'Geral';\nconst urgencia = body.urgencia ? String(body.urgencia).trim().toUpperCase() : 'BAIXA';\nconst mensagem = body.mensagem ? String(body.mensagem).trim() : 'Sem descrição';\nconst dataHora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n\nreturn [{\n  json: {\n    nome_cliente: nome,\n    email: email,\n    categoria: categoria,\n    urgencia: urgencia,\n    mensagem: mensagem,\n    data_recebimento: dataHora\n  }\n}];"
+      },
+      "id": "code-validation-node",
+      "name": "Tratamento e Validação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-urgencia-alta",
+              "leftValue": "={{ $json.urgencia }}",
+              "rightValue": "ALTA",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-decision-node",
+      "name": "If (Urgência ALTA?)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID_AQUI",
+        "text": "=🚨 *ALERTA DE EMERGÊNCIA - ATENDIMENTO URGENTE* 🚨\n\n⚠️ *Nível de Urgência:* {{ $json.urgencia }}\n👤 *Cliente:* {{ $json.nome_cliente }}\n📧 *E-mail:* {{ $json.email }}\n📂 *Categoria:* {{ $json.categoria }}\n🕒 *Recebido em:* {{ $json.data_recebimento }}\n\n💬 *Mensagem:*\n_{{ $json.mensagem }}_\n\n🔥 *Ação imediata necessária pela equipe de plantão!*",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-alert-node",
+      "name": "Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [940, 180]
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID_AQUI",
+        "text": "=📋 *Novo Chamado de Rotina*\n\n📌 *Urgência:* {{ $json.urgencia }}\n👤 *Cliente:* {{ $json.nome_cliente }}\n📧 *E-mail:* {{ $json.email }}\n📂 *Categoria:* {{ $json.categoria }}\n🕒 *Recebido em:* {{ $json.data_recebimento }}\n\n💬 *Mensagem:*\n{{ $json.mensagem }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-normal-node",
+      "name": "Telegram Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Tratamento e Validação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratamento e Validação": {
+      "main": [
+        [
+          {
+            "node": "If (Urgência ALTA?)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If (Urgência ALTA?)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
