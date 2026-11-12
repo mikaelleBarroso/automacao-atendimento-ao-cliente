@@ -14,35 +14,57 @@ Projeto desenvolvido como atividade prática para a disciplina de **Tópicos Esp
 
 ---
 
-## 📌 Contexto da Atividade
+## 📌 O Problema
 
-Este projeto consiste em um fluxo de **automação de triagem e atendimento ao cliente** integrando uma interface web (formulário HTML/JS), um **Webhook no n8n** para processamento e validação dos dados, e o **Telegram** para envio de notificações em tempo real à equipe de suporte de acordo com o nível de urgência do chamado.
+A **Empresa X** deseja automatizar seu canal de atendimento ao cliente. Atualmente, quando um cliente preenche o formulário de contato no site, os dados ficam perdidos em uma caixa de e-mail genérica.
 
-### Arquitetura do Fluxo
+### 🎯 Missão
+Criar um workflow no **n8n** que receba os dados do formulário via **Webhook**, analise o nível de urgência da solicitação e:
+- **Se a urgência for `"ALTA"`:** Envie imediatamente um alerta de emergência com emojis e destaque no Telegram da equipe de plantão.
+- **Se a urgência for `"MÉDIA"` ou `"BAIXA"`:** Envie uma notificação simples de acompanhamento normal de rotina.
 
-1. **Interface Web (`index.html`):**
-   - Formulário de "Central de Atendimento" onde o cliente informa:
-     - Nome Completo (`nome_cliente`)
-     - E-mail (`email`)
-     - Categoria (`Suporte Técnico`, `Financeiro`, `Comercial`, `Dúvidas Gerais`)
-     - Nível de Urgência (`BAIXA`, `MÉDIA`, `ALTA`)
-     - Mensagem detalhada (`mensagem`)
-   - Envia os dados via requisição `POST` (JSON) para o endpoint Webhook do n8n.
+---
 
-2. **Workflow no n8n (`workflow-telegram.json`):**
-   - **Webhook Trigger (`POST /atendimento-cliente`):** Recebe os dados enviados pelo formulário web.
-   - **Tratamento e Validação (`Code Node`):** Higieniza as strings recebidas, define valores padrão caso algum campo esteja ausente, normaliza a urgência para letras maiúsculas e adiciona o carimbo de data/hora (`data_recebimento`) no fuso horário `America/Sao_Paulo`.
-   - **Triagem Condicional (`If Node - Urgência ALTA?`):** Avalia se o campo `urgencia` é igual a `ALTA`.
-     - **Ramo Verdadeiro (`Telegram Alert`):** Dispara um **Alerta de Emergência** destacado para o plantão no Telegram exigindo ação imediata.
-     - **Ramo Falso (`Telegram Message`):** Registra e envia a notificação como um **Novo Chamado de Rotina** no Telegram.
+## 🏗️ Arquitetura do Workflow no n8n
+
+O fluxo de automação segue a sequência visual abaixo:
+
+```text
+[ Webhook Trigger ] > [ Code / Edit Fields ] > [ If (Decisão) ] ──> (True - Urgente) ──> [ Telegram Alert ]
+                                                                └──> (False - Normal) ──> [ Telegram Message ]
+```
+
+### Estrutura do Payload JSON (POST)
+O Webhook aguarda uma requisição HTTP do tipo `POST` com um corpo (`body`) em formato JSON contendo a seguinte estrutura:
+
+```json
+{
+  "nome_cliente": "Maria Oliveira",
+  "email": "maria@empresa.com",
+  "categoria": "Suporte Técnico",
+  "urgencia": "ALTA",
+  "mensagem": "Servidor principal fora do ar!"
+}
+```
+
+---
+
+## 🛠️ Passos de Desenvolvimento
+
+- **P1: Criar o Bot no Telegram** — Criação do bot via `@BotFather`, obtenção do Token da API e identificação do `Chat ID`.
+- **P2: Configurar o Trigger de Webhook no n8n** — Configuração do nó `Webhook Trigger` para escutar requisições `POST` no caminho `/atendimento-cliente`.
+- **P3: Enviar o Formulário de um site ou uma Requisição POST no Postman** — Desenvolvimento da página web ([`index.html`](./index.html)) com formulário integrado via `fetch()` enviando o JSON ao Webhook do n8n.
+- **P4: Tratamento de Dados e Validação** — Uso do nó `Code` (`Tratamento e Validação`) para higienizar os campos recebidos, definir valores padrão caso algum dado esteja vazio, padronizar a `urgencia` em caixa alta e registrar a data/hora do recebimento (`America/Sao_Paulo`).
+- **P5: Tomada de Decisão (Nó If)** — Verificação condicional (`$json.urgencia == "ALTA"`) separando chamados críticos dos chamados de rotina.
+- **P6: Notificação no Telegram** — Disparo da mensagem formatada em Markdown pelo bot do Telegram conforme a prioridade (`Telegram Alert` para emergências e `Telegram Message` para chamados normais).
 
 ---
 
 ## 📂 Estrutura do Repositório
 
 ```text
-├── index.html               # Interface web do formulário de solicitação de atendimento
-├── workflow-telegram.json   # Workflow exportado do n8n com a automação e integração Telegram
+├── index.html               # Interface web do formulário de solicitação de atendimento (Passo P3)
+├── workflow-telegram.json   # Workflow exportado do n8n com a automação completa (Passos P2, P4, P5 e P6)
 └── README.md                # Documentação da atividade
 ```
 
@@ -50,19 +72,10 @@ Este projeto consiste em um fluxo de **automação de triagem e atendimento ao c
 
 ## 🚀 Como Executar e Testar
 
-### 1. Importar e Configurar o Workflow no n8n
-1. Acesse sua instância do **n8n** (Cloud ou local).
-2. Crie um novo workflow e importe o arquivo [`workflow-telegram.json`](./workflow-telegram.json).
-3. Nos nós **Telegram Alert** e **Telegram Message**:
-   - Configure suas credenciais de Bot do Telegram (criado via `@BotFather`).
-   - Substitua `SEU_CHAT_ID_AQUI` pelo seu `Chat ID` real do Telegram.
-4. Copie a URL de teste (ou produção) gerada pelo nó **Webhook Trigger**.
-
-### 2. Executar o Formulário Web
-1. No arquivo [`index.html`](./index.html), verifique a constante `WEBHOOK_URL` (linha 151) e certifique-se de que corresponde à URL do seu Webhook no n8n:
-   ```javascript
-   const WEBHOOK_URL = "https://mikaellebarroso.app.n8n.cloud/webhook-test/atendimento-cliente";
-   ```
-2. No n8n, clique em **Listen for test event** (ou ative o workflow em produção).
-3. Abra o arquivo `index.html` no navegador, preencha os dados do chamado (testando com urgência **ALTA** e depois **BAIXA** ou **MÉDIA**) e clique em **Enviar Solicitação**.
-4. Verifique o recebimento das mensagens formatadas no Telegram!
+1. **Importar o Workflow no n8n:**
+   - No n8n, importe o arquivo [`workflow-telegram.json`](./workflow-telegram.json).
+   - Nos nós **Telegram Alert** e **Telegram Message**, selecione sua credencial do Bot do Telegram e substitua `SEU_CHAT_ID_AQUI` pelo seu `Chat ID`.
+2. **Testar o Envio pelo Site (`index.html`) ou Postman:**
+   - Verifique a variável `WEBHOOK_URL` no arquivo [`index.html`](./index.html) com a URL do seu Webhook no n8n.
+   - Clique em **Listen for test event** no n8n.
+   - Abra o [`index.html`](./index.html) no navegador, preencha os campos e envie solicitações com urgência `ALTA`, `MÉDIA` e `BAIXA` para observar o roteamento no n8n e as notificações no Telegram.
